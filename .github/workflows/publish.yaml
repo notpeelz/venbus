@@ -1,0 +1,101 @@
+on:
+    workflow_dispatch:
+        inputs:
+            test:
+                type: boolean
+                description: Skip publishing step
+            no-tag-check:
+                type: boolean
+                description: Skip tag checking step
+    push:
+        tags:
+            - "*"
+
+name: Publish Package
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        container: archlinux:base-devel
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up environment
+              shell: bash
+              run: |
+                  pacman --noconfirm -Syu aarch64-linux-gnu-gcc
+
+            - name: Install Rust
+              uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  target: aarch64-unknown-linux-gnu,x86_64-unknown-linux-gnu
+
+            - name: Build (aarch64-linux-gnu)
+              shell: bash
+              env:
+                  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+              run: |
+                  mkdir -p build
+                  cargo build --release --target aarch64-unknown-linux-gnu
+                  cp target/aarch64-unknown-linux-gnu/release/libvenbus.so build/venbus.linux-arm64-gnu.node
+
+            - name: Build (x86_64-linux-gnu)
+              shell: bash
+              env:
+                  CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: x86_64-linux-gnu-gcc
+              run: |
+                  mkdir -p build
+                  cargo build --release --target x86_64-unknown-linux-gnu
+                  cp target/x86_64-unknown-linux-gnu/release/libvenbus.so build/venbus.linux-x64-gnu.node
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: addon
+                  path: build
+
+    publish:
+        needs: [build]
+        runs-on: ubuntu-latest
+        container: archlinux:base-devel
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up environment
+              shell: bash
+              run: |
+                  pacman --noconfirm -Syu jq
+
+            - name: Check tag
+              if: ${{ github.event.inputs.no-tag-check != 'true' }}
+              shell: bash
+              run: |
+                  pkg_version="v$(jq -r .version < package.json)"
+                  if [[ "${{ github.ref_name }}" != "$pkg_version" ]]; then
+                    echo "Tag ${{ github.ref_name }} does not match package.json version $pkg_version" >&2
+                    exit 1
+                  fi
+
+            - name: Install Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Download artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: addon
+
+            - name: Publish
+              if: ${{ github.event.inputs.test != 'true' }}
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: pnpm publish

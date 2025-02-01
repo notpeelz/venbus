@@ -1,0 +1,16 @@
+[package]
+name = "venbus"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3.0.0-alpha.27", features = ["tokio_rt"] }
+napi-derive = "3.0.0-alpha.25"
+tokio = "1.43.0"
+zbus = "5.3.1"
+
+[build-dependencies]
+napi-build = "2.1.4"

@@ -1,0 +1,20 @@
+{
+    "name": "@vencord/venbus",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "keywords": [],
+    "author": {
+        "email": "peelz.dev@gmail.com",
+        "name": "notpeelz"
+    },
+    "license": "GPL-3.0-or-later",
+    "packageManager": "pnpm@10.1.0",
+    "engines": {
+        "node": ">=18",
+        "pnpm": ">=8"
+    },
+    "devDependencies": {
+        "prettier": "^3.4.2"
+    }
+}
